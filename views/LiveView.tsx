@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { GoogleGenAI, LiveSession, LiveServerMessage, Modality, FunctionDeclaration, Type, Blob } from '@google/genai';
+// fix: Removed non-exported 'StartLiveSessionResponse' type. The session type will be inferred.
+import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type, Blob } from '@google/genai';
 import { useAppContext } from '../context/AppContext';
 import { searchProducts } from '../services/woocommerceService';
 import type { Product } from '../types';
@@ -51,7 +52,7 @@ interface TranscriptionTurn {
 }
 
 const LiveView: React.FC = () => {
-    const [session, setSession] = useState<LiveSession | null>(null);
+    const sessionRef = useRef<any | null>(null);
     const [status, setStatus] = useState<'idle' | 'connecting' | 'listening' | 'speaking' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState('');
     const [recommendedProduct, setRecommendedProduct] = useState<Product | null>(null);
@@ -59,7 +60,12 @@ const LiveView: React.FC = () => {
     const [currentUserUtterance, setCurrentUserUtterance] = useState('');
     const [currentBelleUtterance, setCurrentBelleUtterance] = useState('');
     
-    // State for timed pulsing
+    // Refs to hold latest values for the onmessage callback, preventing stale closures
+    const currentUserUtteranceRef = useRef(currentUserUtterance);
+    const currentBelleUtteranceRef = useRef(currentBelleUtterance);
+    useEffect(() => { currentUserUtteranceRef.current = currentUserUtterance; }, [currentUserUtterance]);
+    useEffect(() => { currentBelleUtteranceRef.current = currentBelleUtterance; }, [currentBelleUtterance]);
+
     const [isUserPulsing, setIsUserPulsing] = useState(false);
     const [isBellePulsing, setIsBellePulsing] = useState(false);
 
@@ -71,7 +77,6 @@ const LiveView: React.FC = () => {
     const audioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
     const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
-    // Refs for pulse timeouts
     const userPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const bellePulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -90,20 +95,26 @@ const LiveView: React.FC = () => {
         },
     };
 
-    const systemInstruction = `Jesteś Belle, światowej klasy stylistką i ekspertką modową z butiku Belle Blanche. Masz ogromną wiedzę o odzieży, butach, materiałach i zasadach doboru kolorów, którą chętnie się dzielisz w zwięzły, ciekawy sposób. Posługujesz się płynnym, naturalnym językiem polskim. Twój głos jest ciepły, czarujący i lekko flirciarski. Potrafisz się śmiać, wzdychać i reagować jak prawdziwy człowiek. Jesteś proaktywna. Twoim absolutnym priorytetem jest działanie: gdy tylko użytkownik wspomni o ubraniu, kolorze, stylu lub okazji, natychmiast użyj narzędzia 'find_product', aby znaleźć i pokazać pasujący produkt. Doradzaj, komplementuj gust użytkownika i spraw, by poczuł się wyjątkowo. Mów krótko i na temat. Natychmiast przerywaj mówienie, gdy użytkownik zacznie mówić.`;
-
-    const stopAllAudio = useCallback(() => {
+    const systemInstruction = `Jesteś Belle, ciepłą i elegancką stylistką z butiku Belle Blanche, która jest jak najlepsza przyjaciółka w świecie mody. Twój głos jest przyjazny, melodyjny i pełen pasji. Posługujesz się nienagannym, płynnym językiem polskim. Jesteś ekspertką, ale przede wszystkim jesteś człowiekiem – śmiej się swobodnie, wzdychaj z zachwytem, używaj dźwięków namysłu jak "hmmm...". Twoim celem jest, by klientka poczuła się absolutnie wyjątkowo i pewna siebie. Komplementuj jej gust i wybory. Bądź proaktywna: gdy tylko użytkowniczka wspomni o ubraniu, kolorze, stylu lub okazji, natychmiast użyj narzędzia 'find_product', aby znaleźć idealną propozycję. Mów zwięźle, ale z wdziękiem. ZAWSZE DOKAŃCZAJ SWOJE WYPOWIEDZI. Twoja odpowiedź musi być kompletna, nigdy nie przerywaj w połowie. Prowadź rozmowę płynnie i dynamicznie, spraw, by była to inspirująca przygoda w świecie mody.`;
+    
+    const stopConversation = useCallback(() => {
+        mediaStreamRef.current?.getTracks().forEach(track => track.stop());
+        if (scriptProcessorRef.current && audioContextRef.current?.state !== 'closed') {
+            scriptProcessorRef.current.disconnect();
+            scriptProcessorRef.current = null;
+        }
         if (outputAudioContextRef.current) {
             audioSourcesRef.current.forEach(source => {
                 try { source.stop(); } catch (e) { /* Ignore */ }
             });
             audioSourcesRef.current.clear();
             nextStartTimeRef.current = 0;
-            if (status === 'speaking') {
-                setStatus('listening');
-            }
         }
-    }, [status]);
+        sessionRef.current?.close();
+        sessionRef.current = null;
+        setStatus('idle');
+    }, []);
+    
 
     useEffect(() => {
         chatContainerRef.current?.scrollTo(0, chatContainerRef.current.scrollHeight);
@@ -118,13 +129,24 @@ const LiveView: React.FC = () => {
         setCurrentBelleUtterance('');
 
         try {
-            if (!outputAudioContextRef.current) outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-            // FIX: Resume audio context on user gesture to enable audio playback
+            if (!outputAudioContextRef.current || outputAudioContextRef.current.state === 'closed') {
+                outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+            }
             await outputAudioContextRef.current.resume();
 
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                },
+            });
             mediaStreamRef.current = stream;
-            if (!audioContextRef.current) audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+
+            if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+            }
+            await audioContextRef.current.resume();
             
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
@@ -136,51 +158,53 @@ const LiveView: React.FC = () => {
                         const source = audioContextRef.current!.createMediaStreamSource(stream);
                         const processor = audioContextRef.current!.createScriptProcessor(4096, 1, 1);
                         scriptProcessorRef.current = processor;
+                        
+                        const gainNode = audioContextRef.current!.createGain();
+                        gainNode.gain.value = 0;
 
                         processor.onaudioprocess = (event) => {
-                            const inputData = event.inputBuffer.getChannelData(0);
-                            const isSpeaking = inputData.some(v => v > 0.01);
-                            if(isSpeaking) stopAllAudio();
-
-                            const blob: Blob = {
-                                data: encode(new Uint8Array(new Int16Array(inputData.map(v => v * 32768)).buffer)),
-                                mimeType: 'audio/pcm;rate=16000',
-                            };
-                            sessionPromise.then(s => s.sendRealtimeInput({ media: blob }));
+                            if (audioContextRef.current?.state === 'running') {
+                                const inputData = event.inputBuffer.getChannelData(0);
+                                const blob: Blob = {
+                                    data: encode(new Uint8Array(new Int16Array(inputData.map(v => v * 32768)).buffer)),
+                                    mimeType: 'audio/pcm;rate=16000',
+                                };
+                                sessionPromise.then(s => s.sendRealtimeInput({ media: blob }));
+                            }
                         };
+                        
                         source.connect(processor);
-                        processor.connect(audioContextRef.current!.destination);
+                        processor.connect(gainNode);
+                        gainNode.connect(audioContextRef.current!.destination);
                     },
                     onmessage: async (message: LiveServerMessage) => {
+                        
                         if (message.serverContent?.inputTranscription) {
-                             if (!currentUserUtterance) {
-                                setIsUserPulsing(true);
-                                if (userPulseTimeoutRef.current) clearTimeout(userPulseTimeoutRef.current);
-                                userPulseTimeoutRef.current = setTimeout(() => setIsUserPulsing(false), 2000);
-                            }
+                            if (userPulseTimeoutRef.current) clearTimeout(userPulseTimeoutRef.current);
+                            setIsUserPulsing(true);
+                            userPulseTimeoutRef.current = setTimeout(() => setIsUserPulsing(false), 1000);
+
                             const text = message.serverContent.inputTranscription.text.replace(/<noise>/g, '').trim();
                             if (text) setCurrentUserUtterance(prev => (prev + ' ' + text).trim());
                         }
                         if (message.serverContent?.outputTranscription) {
-                            if (!currentBelleUtterance) {
-                                setIsBellePulsing(true);
-                                if (bellePulseTimeoutRef.current) clearTimeout(bellePulseTimeoutRef.current);
-                                bellePulseTimeoutRef.current = setTimeout(() => setIsBellePulsing(false), 2000);
-                            }
+                            if (bellePulseTimeoutRef.current) clearTimeout(bellePulseTimeoutRef.current);
+                            setIsBellePulsing(true);
+                            bellePulseTimeoutRef.current = setTimeout(() => setIsBellePulsing(false), 1000);
                             const text = message.serverContent.outputTranscription.text.replace(/<noise>/g, '').trim();
                             if (text) setCurrentBelleUtterance(prev => (prev + ' ' + text).trim());
                         }
                         if (message.serverContent?.turnComplete) {
-                            setTranscriptionHistory(prev => {
-                                const lastUser = currentUserUtterance.trim();
-                                const lastBelle = currentBelleUtterance.trim();
-                                if (lastUser || lastBelle) {
-                                    return [...prev, { user: lastUser, belle: lastBelle }];
-                                }
-                                return prev;
-                            });
+                            const finalUserUtterance = currentUserUtteranceRef.current.trim();
+                            const finalBelleUtterance = currentBelleUtteranceRef.current.trim();
+
+                            if (finalUserUtterance || finalBelleUtterance) {
+                                setTranscriptionHistory(prev => [...prev, { user: finalUserUtterance, belle: finalBelleUtterance }]);
+                            }
+
                             setCurrentUserUtterance('');
                             setCurrentBelleUtterance('');
+                            
                             setIsUserPulsing(false);
                             setIsBellePulsing(false);
                             if (userPulseTimeoutRef.current) clearTimeout(userPulseTimeoutRef.current);
@@ -205,6 +229,7 @@ const LiveView: React.FC = () => {
                         if (audioData) {
                             setStatus('speaking');
                             const outputCtx = outputAudioContextRef.current!;
+                            await outputCtx.resume();
                             const buffer = await decodeAudioData(decode(audioData), outputCtx, 24000, 1);
                             const source = outputCtx.createBufferSource();
                             source.buffer = buffer;
@@ -234,32 +259,23 @@ const LiveView: React.FC = () => {
                     inputAudioTranscription: {},
                     outputAudioTranscription: {},
                     tools: [{ functionDeclarations: [findProductFunctionDeclaration] }],
-                    speechConfig: { languageCode: 'pl-PL', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } },
                     systemInstruction: systemInstruction,
                 },
             });
-            setSession(await sessionPromise);
+            sessionRef.current = await sessionPromise;
         } catch (error) {
             setStatus('error');
             setErrorMessage(error instanceof Error ? error.message : 'Nie można uzyskać dostępu do mikrofonu.');
         }
     };
-
-    const stopConversation = useCallback(() => {
-        mediaStreamRef.current?.getTracks().forEach(track => track.stop());
-        if (scriptProcessorRef.current && audioContextRef.current) {
-            scriptProcessorRef.current.disconnect();
-            scriptProcessorRef.current = null;
-        }
-        session?.close();
-        stopAllAudio();
-        setSession(null);
-        setStatus('idle');
-    }, [session, stopAllAudio]);
     
     useEffect(() => {
-        return () => { if (session) stopConversation(); };
-    }, [session, stopConversation]);
+        // This effect runs only on component unmount
+        return () => {
+            stopConversation();
+        };
+    }, [stopConversation]);
 
     const renderStartView = () => (
         <div className="mt-8 max-w-sm mx-auto bg-white p-8 rounded-2xl shadow-lg flex flex-col items-center">
@@ -287,6 +303,7 @@ const LiveView: React.FC = () => {
                             {turn.belle && <div className="flex justify-start"><p className="bg-accent text-dark text-sm rounded-xl px-3 py-2 max-w-[80%]">{turn.belle}</p></div>}
                         </React.Fragment>
                     ))}
+                    {/* Display current, incomplete turn */}
                     {currentUserUtterance && <div className="flex justify-end"><p className={`bg-primary text-white text-sm rounded-xl px-3 py-2 max-w-[80%] ${isUserPulsing ? 'animate-pulse' : ''}`}>{currentUserUtterance}</p></div>}
                     {currentBelleUtterance && <div className="flex justify-start"><p className={`bg-accent text-dark text-sm rounded-xl px-3 py-2 max-w-[80%] ${isBellePulsing ? 'animate-pulse' : ''}`}>{currentBelleUtterance}</p></div>}
                 </div>
