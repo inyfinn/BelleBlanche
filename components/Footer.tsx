@@ -20,15 +20,15 @@ const Footer: React.FC = () => {
   };
     
   return (
-    <footer className="bg-white text-brand-dark border-t border-brand-gray">
+    <footer className="bg-white text-dark border-t border-gray-200">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-12">
             <h3 className="text-2xl font-serif tracking-wider mb-2">Dołącz do klubu Belle Blanche</h3>
-            <p className="text-brand-dark/80 mb-6">Zapisz się do newslettera i otrzymaj 10% rabatu na pierwsze zakupy.</p>
+            <p className="text-dark/80 mb-6">Zapisz się do newslettera i otrzymaj 10% rabatu na pierwsze zakupy.</p>
             <form onSubmit={handleNewsletterSubmit} className="max-w-md mx-auto">
                 <div className="flex flex-col sm:flex-row gap-2">
-                    <input type="email" placeholder="Twój adres email" className="w-full px-4 py-2 bg-brand-beige border border-brand-taupe rounded-sm focus:outline-none focus:ring-2 focus:ring-brand-dark" required/>
-                    <button type="submit" className="px-6 py-2 bg-brand-dark text-white rounded-sm hover:bg-opacity-80 transition-colors uppercase text-sm tracking-wider">Zapisz się</button>
+                    <input type="email" placeholder="Twój adres email" className="w-full px-4 py-2 bg-accent border border-primary/20 rounded-sm focus:outline-none focus:ring-2 focus:ring-primary" required/>
+                    <button type="submit" className="px-6 py-2 bg-primary text-white rounded-sm hover:bg-opacity-80 transition-colors uppercase text-sm tracking-wider">Zapisz się</button>
                 </div>
             </form>
         </div>
@@ -68,9 +68,9 @@ const Footer: React.FC = () => {
         </div>
       </div>
       
-      <div className="bg-brand-beige">
+      <div className="bg-accent">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row justify-between items-center text-xs">
-          <p className="text-brand-dark/70 mb-2 md:mb-0">&copy; {new Date().getFullYear()} Belle Blanche. Wszelkie prawa zastrzeżone.</p>
+          <p className="text-dark/70 mb-2 md:mb-0">&copy; {new Date().getFullYear()} Belle Blanche. Wszelkie prawa zastrzeżone.</p>
           <PaymentIcons />
         </div>
       </div>

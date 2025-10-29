@@ -1,66 +1,81 @@
-import React, { useState, useCallback } from 'react';
-import { AppProvider } from './context/AppContext';
+import React, { useCallback } from 'react';
+import { AppProvider, useAppContext } from './context/AppContext';
+import type { MainView, ViewState } from './types';
+
+// Import Components
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
+
+// Import Views
 import HomeView from './views/HomeView';
-import CartView from './views/CartView';
-import WishlistView from './views/WishlistView';
-import ProfileView from './views/ProfileView';
+import ProductListView from './views/ProductListView';
 import ProductDetailsView from './views/ProductDetailsView';
+import WishlistView from './views/WishlistView';
+import CartView from './views/CartView';
+import ProfileView from './views/ProfileView';
 import SearchView from './views/SearchView';
 import LiveView from './views/LiveView';
 
-export type MainView = 'home' | 'search' | 'wishlist' | 'live' | 'profile' | 'cart';
-export type ViewState = { view: MainView } | { view: 'productDetails'; productId: number };
+const isMainView = (view: ViewState['view']): view is MainView => {
+    return ['home', 'search', 'wishlist', 'live', 'profile'].includes(view);
+};
+
+const AppContent: React.FC = () => {
+    const { currentViewState, goBack, navigateTo } = useAppContext();
+
+    const setCurrentView = useCallback((view: MainView) => {
+        if (currentViewState.view === view) return;
+        navigateTo({ view });
+    }, [currentViewState.view, navigateTo]);
+    
+    const renderView = () => {
+        switch (currentViewState.view) {
+            case 'home':
+                return <HomeView navigateTo={navigateTo} />;
+            case 'productList':
+                return <ProductListView title={currentViewState.title} categorySlug={currentViewState.categorySlug} navigateTo={navigateTo} />;
+            case 'productDetails':
+                return <ProductDetailsView productId={currentViewState.productId} />;
+            case 'wishlist':
+                return <WishlistView navigateTo={navigateTo} />;
+            case 'cart':
+                return <CartView />;
+            case 'profile':
+                return <ProfileView />;
+            case 'search':
+                return <SearchView />;
+            case 'live':
+                return <LiveView />;
+            default:
+                // Type safety: should not happen if all views are handled.
+                return <HomeView navigateTo={navigateTo} />;
+        }
+    };
+
+    const showBottomNav = isMainView(currentViewState.view);
+
+    return (
+        <div className="bg-light min-h-screen font-sans pb-24">
+            <Header viewState={currentViewState} goBack={goBack} />
+            <main>
+                {renderView()}
+            </main>
+            {showBottomNav && (
+                 <BottomNav 
+                    currentView={currentViewState.view as MainView}
+                    setCurrentView={setCurrentView}
+                 />
+            )}
+        </div>
+    );
+};
 
 const App: React.FC = () => {
-  const [viewState, setViewState] = useState<ViewState>({ view: 'home' });
-
-  const navigateTo = useCallback((newViewState: ViewState) => {
-    setViewState(newViewState);
-  }, []);
-  
-  const goBack = useCallback(() => {
-    // Simple back logic, for a real app, a navigation stack would be better
-    if (viewState.view === 'productDetails') {
-      navigateTo({ view: 'home' });
-    }
-  }, [viewState, navigateTo]);
-
-  const renderView = () => {
-    switch (viewState.view) {
-      case 'home':
-        return <HomeView navigateTo={navigateTo} />;
-      case 'productDetails':
-        return <ProductDetailsView productId={viewState.productId} navigateTo={navigateTo} />;
-      case 'cart':
-        return <CartView />;
-      case 'wishlist':
-        return <WishlistView navigateTo={navigateTo} />;
-      case 'profile':
-        return <ProfileView />;
-      case 'search':
-        return <SearchView />;
-      case 'live':
-        return <LiveView />;
-      default:
-        return <HomeView navigateTo={navigateTo} />;
-    }
-  };
-
-  const currentMainView = viewState.view === 'productDetails' ? 'home' : viewState.view;
-
-  return (
-    <AppProvider navigateTo={navigateTo}>
-      <div className="flex flex-col min-h-screen bg-light font-sans text-dark">
-        <Header viewState={viewState} goBack={goBack} />
-        <main className="flex-grow pb-24">
-          {renderView()}
-        </main>
-        <BottomNav currentView={currentMainView} setCurrentView={(view) => navigateTo({ view })} />
-      </div>
-    </AppProvider>
-  );
+    return (
+        <AppProvider>
+            <AppContent />
+        </AppProvider>
+    );
 };
 
 export default App;

@@ -2,11 +2,13 @@ import React from 'react';
 import { StarIcon } from './Icons';
 
 interface RatingProps {
-  value: number;
+  value: number | string;
   max?: number;
 }
 
 const Rating: React.FC<RatingProps> = ({ value, max = 5 }) => {
+  const numericValue = typeof value === 'string' ? parseFloat(value) : value;
+  
   return (
     <div className="flex items-center">
       {[...Array(max)].map((_, index) => {
@@ -14,8 +16,8 @@ const Rating: React.FC<RatingProps> = ({ value, max = 5 }) => {
         return (
           <StarIcon
             key={index}
-            className={`w-4 h-4 ${value >= starValue ? 'text-yellow-400' : 'text-gray-300'}`}
-            isFilled={value >= starValue}
+            className={`w-4 h-4 ${numericValue >= starValue ? 'text-rating-gold' : 'text-gray-300'}`}
+            isFilled={numericValue >= starValue}
           />
         );
       })}

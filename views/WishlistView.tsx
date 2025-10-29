@@ -1,17 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
-import type { ViewState } from '../App';
+// Fix: Import ViewState from the correct types file.
+import type { ViewState } from '../types';
+import { getCategories } from '../services/woocommerceService';
+import type { Category } from '../types';
 
 interface WishlistViewProps {
   navigateTo: (viewState: ViewState) => void;
 }
 
-const categories = ['Wszystko', 'Kurtka', 'Sukienka', 'Spodnie', 'T-Shirt'];
-
 const WishlistView: React.FC<WishlistViewProps> = ({ navigateTo }) => {
   const { wishlist } = useAppContext();
-  const [activeCategory, setActiveCategory] = useState('Wszystko');
+  const [activeCategorySlug, setActiveCategorySlug] = useState('Wszystko');
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    getCategories().then(setAllCategories);
+  }, []);
+
+  const wishlistCategorySlugs = new Set(
+    wishlist.flatMap(p => p.categories.map(c => c.slug)).filter(Boolean)
+  );
+  
+  const availableCategories = [
+      { id: -1, name: 'Wszystko', slug: 'Wszystko' },
+      ...allCategories.filter(c => wishlistCategorySlugs.has(c.slug))
+  ];
+  
+  const filteredWishlist = activeCategorySlug === 'Wszystko'
+    ? wishlist
+    : wishlist.filter(p => p.categories.some(c => c.slug === activeCategorySlug));
 
   if (wishlist.length === 0) {
     return (
@@ -25,18 +44,18 @@ const WishlistView: React.FC<WishlistViewProps> = ({ navigateTo }) => {
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex space-x-2 overflow-x-auto pb-4 mb-6">
-            {categories.map(category => (
+            {availableCategories.map(category => (
                 <button 
-                    key={category}
-                    onClick={() => setActiveCategory(category)}
-                    className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeCategory === category ? 'bg-secondary text-white' : 'bg-accent text-dark'}`}
+                    key={category.slug}
+                    onClick={() => setActiveCategorySlug(category.slug)}
+                    className={`flex-shrink-0 px-4 py-2 text-sm rounded-lg transition-colors ${activeCategorySlug === category.slug ? 'bg-primary text-white font-semibold' : 'bg-accent text-primary'}`}
                 >
-                    {category}
+                    {category.name}
                 </button>
             ))}
         </div>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-        {wishlist.map((product) => (
+        {filteredWishlist.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>

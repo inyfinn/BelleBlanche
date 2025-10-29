@@ -16,8 +16,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     navigateTo({ view: 'productDetails', productId: product.id });
   };
 
+  const isSale = product.regular_price && parseFloat(product.regular_price) > parseFloat(product.price);
+
   return (
-    <div onClick={handleCardClick} className="group relative flex flex-col bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden cursor-pointer">
+    <div onClick={handleCardClick} className="group relative flex flex-col bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden cursor-pointer">
       <div className="relative aspect-[1/1.1] w-full">
         <img
           src={product.images[0]?.src || 'https://placehold.co/400x400/f0f0f0/373737?text=Belle+Blanche'}
@@ -29,7 +31,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             e.stopPropagation(); // Prevent card click
             toggleWishlist(product);
           }}
-          className={`absolute top-3 right-3 z-10 p-2 rounded-full transition-all duration-300 ${onWishlist ? 'bg-secondary text-white' : 'bg-white/70 text-dark hover:bg-white'}`}
+          className={`absolute top-3 right-3 z-10 p-2 rounded-full transition-all duration-300 ${onWishlist ? 'bg-primary text-white' : 'bg-white/70 text-dark hover:bg-white'}`}
           aria-label={onWishlist ? "Usuń z listy życzeń" : "Dodaj do listy życzeń"}
         >
           <HeartIcon className={`w-5 h-5 ${onWishlist ? 'fill-current' : ''}`} />
@@ -40,13 +42,20 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           {product.name}
         </h3>
         <div className="flex items-center mt-1">
-            <Rating value={product.rating} />
-            <span className="text-xs text-gray-400 ml-2">({product.reviewCount})</span>
+            <Rating value={parseFloat(product.average_rating)} />
+            <span className="text-xs text-gray-400 ml-2">({product.rating_count})</span>
         </div>
         <div className="flex items-end justify-between mt-2">
-            <p className="text-base font-bold text-secondary">
+          <div className="flex items-baseline gap-2">
+            <p className="text-base font-bold text-primary">
               {parseFloat(product.price).toFixed(2)} zł
             </p>
+            {isSale && (
+              <p className="text-sm text-gray-400 line-through">
+                {parseFloat(product.regular_price).toFixed(2)} zł
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>

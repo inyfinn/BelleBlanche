@@ -11,12 +11,13 @@
         theme: {
           extend: {
             colors: {
-              'primary': '#C4A080',    // Ciepły beż/taupe
-              'secondary': '#8B6F47',  // Brąz
-              'accent': '#F5E6D3',     // Kremowy/jasny beż
-              'dark': '#2D2D2D',       // Ciemny tekst
-              'light': '#F9F7F4',      // Tło
+              'primary': '#9B7D5F',    // brown_primary
+              'secondary': '#7A6249',  // brown_dark
+              'accent': '#F5E8E0',     // beige_soft
+              'dark': '#3D3D3D',       // text_dark
+              'light': '#FBF9F7',      // cream_light
               'white': '#FFFFFF',
+              'rating-gold': '#D4A574', // rating_gold
             },
             fontFamily: {
               'sans': ['"Poppins"', 'sans-serif'],
@@ -26,6 +27,16 @@
         }
       }
     </script>
+    <style>
+      /* Utility to hide the scrollbar */
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      .scrollbar-hide {
+        -ms-overflow-style: none; /* IE and Edge */
+        scrollbar-width: none; /* Firefox */
+      }
+    </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -34,7 +45,8 @@
   "imports": {
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0"
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.27.0"
   }
 }
 </script>
