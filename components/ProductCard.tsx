@@ -1,0 +1,56 @@
+import React from 'react';
+import type { Product } from '../types';
+import { useAppContext } from '../context/AppContext';
+import { HeartIcon } from './Icons';
+import Rating from './Rating';
+
+interface ProductCardProps {
+  product: Product;
+}
+
+const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+  const { toggleWishlist, isInWishlist, navigateTo } = useAppContext();
+  const onWishlist = isInWishlist(product.id);
+
+  const handleCardClick = () => {
+    navigateTo({ view: 'productDetails', productId: product.id });
+  };
+
+  return (
+    <div onClick={handleCardClick} className="group relative flex flex-col bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden cursor-pointer">
+      <div className="relative aspect-[1/1.1] w-full">
+        <img
+          src={product.images[0]?.src || 'https://placehold.co/400x400/f0f0f0/373737?text=Belle+Blanche'}
+          alt={product.images[0]?.alt || product.name}
+          className="h-full w-full object-cover object-center"
+        />
+        <button
+          onClick={(e) => {
+            e.stopPropagation(); // Prevent card click
+            toggleWishlist(product);
+          }}
+          className={`absolute top-3 right-3 z-10 p-2 rounded-full transition-all duration-300 ${onWishlist ? 'bg-secondary text-white' : 'bg-white/70 text-dark hover:bg-white'}`}
+          aria-label={onWishlist ? "Usuń z listy życzeń" : "Dodaj do listy życzeń"}
+        >
+          <HeartIcon className={`w-5 h-5 ${onWishlist ? 'fill-current' : ''}`} />
+        </button>
+      </div>
+      <div className="p-3 flex flex-col flex-grow">
+        <h3 className="text-sm font-semibold text-dark flex-grow leading-tight">
+          {product.name}
+        </h3>
+        <div className="flex items-center mt-1">
+            <Rating value={product.rating} />
+            <span className="text-xs text-gray-400 ml-2">({product.reviewCount})</span>
+        </div>
+        <div className="flex items-end justify-between mt-2">
+            <p className="text-base font-bold text-secondary">
+              {parseFloat(product.price).toFixed(2)} zł
+            </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ProductCard;
