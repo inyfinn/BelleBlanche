@@ -4,6 +4,7 @@ import type { Category, Product } from '../types';
 import CategorySlider from '../components/CategorySlider';
 import AiRecommendations from '../components/AiRecommendations';
 import ProductCard from '../components/ProductCard';
+import ProductRequest from '../components/ProductRequest'; // Import the new component
 // Fix: Import ViewState from the correct types file.
 import type { ViewState } from '../types';
 
@@ -141,6 +142,11 @@ const HomeView: React.FC<HomeViewProps> = ({ navigateTo }) => {
           ) : (
               <AiRecommendations allProducts={products} />
           )}
+      </div>
+      
+      {/* Product Request Section */}
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <ProductRequest />
       </div>
     </div>
   );

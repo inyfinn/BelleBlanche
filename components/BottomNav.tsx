@@ -5,7 +5,7 @@ import { HomeIcon, HeartIcon, SearchIcon, UserIcon, RoseIcon } from './Icons';
 import { useAppContext } from '../context/AppContext';
 
 interface BottomNavProps {
-    currentView: MainView;
+    currentView?: MainView;
     setCurrentView: (view: MainView) => void;
 }
 

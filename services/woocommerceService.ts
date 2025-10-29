@@ -1,25 +1,31 @@
-import type { Product, Category } from '../types';
-import { stripHtml } from '../utils/textUtils';
+import type { Product, Category, ProductReview, CreateReviewData } from '../types';
+import { stripHtml, decodeHtmlEntities } from '../utils/textUtils';
 
-// --- PRODUCTION WOOCOMMERCE API ---
 const WOOCOMMERCE_API_URL = 'https://belleblanche.store/wp-json/wc/v3/';
 const CONSUMER_KEY = 'ck_63467977290a562ce148450ddbd0e1f86a01fa10';
 const CONSUMER_SECRET = 'cs_ca4226d8591bfc8a5f7ea86f694fa0005f066faa';
 
-const mapProductFromWooCommerceApi = (apiProduct: any): Product => ({
-  id: apiProduct.id,
-  name: apiProduct.name,
-  permalink: apiProduct.permalink,
-  price: apiProduct.price,
-  regular_price: apiProduct.regular_price,
-  images: apiProduct.images.map((img: any) => ({ id: img.id, src: img.src, alt: img.alt })),
-  description: stripHtml(apiProduct.description || apiProduct.short_description),
-  average_rating: apiProduct.average_rating,
-  rating_count: apiProduct.rating_count,
-  categories: apiProduct.categories.map((cat: any) => ({ id: cat.id, name: cat.name, slug: cat.slug })),
-  attributes: apiProduct.attributes.map((attr: any) => ({ id: attr.id, name: attr.name, options: attr.options })),
-  in_stock: apiProduct.in_stock,
-});
+const mapProductFromWooCommerceApi = (apiProduct: any): Product => {
+    // Find video URL in meta_data
+    const videoMeta = apiProduct.meta_data.find((meta: any) => meta.key === '_video_url');
+    const videoUrl = videoMeta ? videoMeta.value : undefined;
+
+    return {
+        id: apiProduct.id,
+        name: decodeHtmlEntities(apiProduct.name),
+        permalink: apiProduct.permalink,
+        price: apiProduct.price,
+        regular_price: apiProduct.regular_price,
+        images: apiProduct.images.map((img: any) => ({ id: img.id, src: img.src, alt: img.alt })),
+        description: apiProduct.description || apiProduct.short_description || '',
+        average_rating: apiProduct.average_rating,
+        rating_count: apiProduct.rating_count,
+        categories: apiProduct.categories.map((cat: any) => ({ id: cat.id, name: decodeHtmlEntities(cat.name), slug: cat.slug })),
+        attributes: apiProduct.attributes.map((attr: any) => ({ id: attr.id, name: decodeHtmlEntities(attr.name), options: attr.options.map((opt: string) => decodeHtmlEntities(opt)) })),
+        in_stock: apiProduct.in_stock,
+        videoUrl: videoUrl,
+    };
+};
 
 const fetchFromWooCommerceApi = async <T>(endpoint: string, params: Record<string, any> = {}): Promise<T> => {
     const url = new URL(`${WOOCOMMERCE_API_URL}${endpoint}`);
@@ -78,4 +84,32 @@ export const getProductById = async (id: number): Promise<Product | undefined> =
 
 export const getCategories = async (): Promise<Category[]> => {
     return await fetchFromWooCommerceApi<Category[]>('products/categories', { per_page: 100 });
+};
+
+export const getProductReviews = async (productId: number): Promise<ProductReview[]> => {
+    const apiReviews = await fetchFromWooCommerceApi<any[]>(`products/reviews`, { product: productId, per_page: 100, status: 'approved' });
+    return apiReviews.map(r => ({
+        id: r.id,
+        date_created: r.date_created,
+        review: decodeHtmlEntities(stripHtml(r.review)),
+        rating: r.rating,
+        name: decodeHtmlEntities(r.name),
+        email: r.email,
+        verified: r.verified
+    }));
+};
+
+export const createProductReview = async (reviewData: CreateReviewData): Promise<ProductReview> => {
+    const response = await fetch(`${WOOCOMMERCE_API_URL}products/reviews?consumer_key=${CONSUMER_KEY}&consumer_secret=${CONSUMER_SECRET}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(reviewData)
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Nie udało się dodać opinii.');
+    }
+    return response.json();
 };

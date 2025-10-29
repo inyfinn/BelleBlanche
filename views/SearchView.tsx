@@ -63,7 +63,7 @@ const SearchView: React.FC = () => {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Szukaj produktów..."
-          className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full pl-11 pr-4 py-3 bg-white text-dark border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
           autoFocus
         />
       </div>

@@ -1,9 +1,119 @@
-import React, { useEffect, useState } from 'react';
-import { getProductById } from '../services/woocommerceService';
-import type { Product, ProductAttribute } from '../types';
+import React, { useEffect, useState, useCallback } from 'react';
+import { getProductById, getProductReviews, createProductReview } from '../services/woocommerceService';
+import type { Product, ProductReview, CreateReviewData } from '../types';
 import { useAppContext } from '../context/AppContext';
-import { HeartIcon, PlusIcon, MinusIcon, ShareIcon } from '../components/Icons';
+import { HeartIcon, PlusIcon, MinusIcon, ShareIcon, PencilIcon, StarIcon, PlayIcon } from '../components/Icons';
 import Rating from '../components/Rating';
+
+// --- SUB-COMPONENTS for Reviews ---
+
+const StarRatingInput: React.FC<{ rating: number; setRating: (rating: number) => void; }> = ({ rating, setRating }) => {
+    const [hoverRating, setHoverRating] = useState(0);
+    return (
+        <div className="flex items-center">
+            {[...Array(5)].map((_, index) => {
+                const starValue = index + 1;
+                return (
+                    <button
+                        key={index}
+                        type="button"
+                        onMouseEnter={() => setHoverRating(starValue)}
+                        onMouseLeave={() => setHoverRating(0)}
+                        onClick={() => setRating(starValue)}
+                        aria-label={`Ocena ${starValue} na 5`}
+                    >
+                        <StarIcon
+                            className={`w-6 h-6 cursor-pointer ${starValue <= (hoverRating || rating) ? 'text-rating-gold' : 'text-gray-300'}`}
+                            isFilled={starValue <= (hoverRating || rating)}
+                        />
+                    </button>
+                );
+            })}
+        </div>
+    );
+};
+
+const ReviewForm: React.FC<{ productId: number; onReviewSubmitted: () => void }> = ({ productId, onReviewSubmitted }) => {
+    const { userProfile, showToast } = useAppContext();
+    const [rating, setRating] = useState(0);
+    const [review, setReview] = useState('');
+    const [reviewerName, setReviewerName] = useState(userProfile.name);
+    const [reviewerEmail, setReviewerEmail] = useState(userProfile.email);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (rating === 0) {
+            showToast("Proszę wybrać ocenę w gwiazdkach.");
+            return;
+        }
+        if (!review.trim()) {
+            showToast("Treść opinii nie może być pusta.");
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const reviewData: CreateReviewData = {
+                product_id: productId,
+                review: review,
+                reviewer: reviewerName,
+                reviewer_email: reviewerEmail,
+                rating: rating,
+            };
+            await createProductReview(reviewData);
+            showToast("Dziękujemy za Twoją opinię!");
+            onReviewSubmitted();
+            setRating(0);
+            setReview('');
+        } catch (error: any) {
+            console.error("Failed to submit review", error);
+            showToast(error.message || "Nie udało się dodać opinii.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="bg-accent/50 p-4 rounded-xl mt-4 space-y-3">
+             <div>
+                <label className="block text-sm font-semibold text-dark mb-1">Twoja ocena</label>
+                <StarRatingInput rating={rating} setRating={setRating} />
+            </div>
+            <div>
+                <label htmlFor="reviewText" className="block text-sm font-semibold text-dark mb-1">Twoja opinia</label>
+                <textarea
+                    id="reviewText"
+                    value={review}
+                    onChange={(e) => setReview(e.target.value)}
+                    placeholder="Podziel się swoimi wrażeniami..."
+                    rows={4}
+                    className="w-full p-2 bg-white rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
+                />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                 <div>
+                    <label htmlFor="reviewerName" className="block text-sm font-semibold text-dark mb-1">Imię</label>
+                    <input type="text" id="reviewerName" value={reviewerName} onChange={(e) => setReviewerName(e.target.value)} className="w-full p-2 bg-white rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary" required />
+                </div>
+                <div>
+                    <label htmlFor="reviewerEmail" className="block text-sm font-semibold text-dark mb-1">Email</label>
+                    <input type="email" id="reviewerEmail" value={reviewerEmail} onChange={(e) => setReviewerEmail(e.target.value)} className="w-full p-2 bg-white rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary" required />
+                </div>
+            </div>
+            <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-primary text-white py-3 rounded-lg font-bold hover:bg-opacity-90 transition-colors disabled:bg-gray-400"
+            >
+                {isSubmitting ? 'Wysyłanie...' : 'Wyślij opinię'}
+            </button>
+        </form>
+    );
+};
+
+
+// --- Main Component ---
 
 interface ProductDetailsViewProps {
   productId: number;
@@ -15,17 +125,19 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({ productId }) =>
   const [quantity, setQuantity] = useState(1);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const reviewsRef = React.useRef<HTMLDivElement>(null);
 
-  const { addToCart, toggleWishlist, isInWishlist, showToast } = useAppContext();
 
-  useEffect(() => {
-    const fetchProduct = async () => {
-      setLoading(true);
-      try {
+  const { addToCart, toggleWishlist, isInWishlist, showToast, openVideoPlayer } = useAppContext();
+  
+  const fetchProductData = useCallback(async () => {
+    try {
+        setLoading(true);
         const fetchedProduct = await getProductById(productId);
         if (fetchedProduct) {
           setProduct(fetchedProduct);
-          // Pre-select the first option for each attribute
           const initialAttributes: Record<string, string> = {};
           fetchedProduct.attributes.forEach(attr => {
               if(attr.options.length > 0) {
@@ -41,9 +153,22 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({ productId }) =>
       } finally {
         setLoading(false);
       }
-    };
-    fetchProduct();
   }, [productId]);
+
+  const fetchReviews = useCallback(async () => {
+    try {
+        const fetchedReviews = await getProductReviews(productId);
+        setReviews(fetchedReviews);
+    } catch(error) {
+        console.error("Failed to fetch reviews", error);
+    }
+  }, [productId]);
+
+
+  useEffect(() => {
+    fetchProductData();
+    fetchReviews();
+  }, [fetchProductData, fetchReviews]);
   
   const handleAddToCart = () => {
     if (product) {
@@ -55,11 +180,17 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({ productId }) =>
       setSelectedAttributes(prev => ({...prev, [attributeName]: option}));
   };
   
+  const handlePlayVideoClick = () => {
+    if (product?.videoUrl) {
+      openVideoPlayer(product.videoUrl);
+    }
+  };
+
   const onWishlist = product ? isInWishlist(product.id) : false;
 
   if (loading) {
     return (
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-pulse">
+        <div className="bg-light container mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-pulse">
             <div className="aspect-square bg-accent rounded-2xl w-full"></div>
             <div className="h-8 bg-accent rounded w-3/4 mt-6"></div>
             <div className="h-4 bg-accent rounded w-1/2 mt-4"></div>
@@ -72,7 +203,7 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({ productId }) =>
 
   if (!product) {
     return (
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+      <div className="bg-light container mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
         <h1 className="text-2xl font-bold">Produkt nie został znaleziony</h1>
         <p className="mt-2 text-gray-500">Przepraszamy, nie mogliśmy znaleźć produktu, którego szukasz.</p>
       </div>
@@ -80,16 +211,24 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({ productId }) =>
   }
 
   return (
-    <div>
-        {/* Image Carousel */}
+    <div className="bg-light">
         <div className="relative">
-            <div className="aspect-square w-full">
+            <div className="aspect-square w-full bg-white">
                 <img
                     src={product.images[activeImageIndex]?.src || 'https://placehold.co/600x600/f0f0f0/373737?text=Belle+Blanche'}
                     alt={product.images[activeImageIndex]?.alt || product.name}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-contain"
                 />
             </div>
+            {product.videoUrl && (
+                <button
+                    onClick={handlePlayVideoClick}
+                    className="absolute bottom-12 right-4 z-10 p-2 bg-black/40 text-white rounded-full hover:bg-black/60 transition-all"
+                    aria-label="Odtwórz wideo"
+                >
+                    <PlayIcon className="w-8 h-8" />
+                </button>
+            )}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
                 {product.images.length > 1 && product.images.map((_, index) => (
                     <button 
@@ -104,11 +243,7 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({ productId }) =>
                 <button
                     onClick={() => {
                         if (navigator.share) {
-                            navigator.share({
-                                title: product.name,
-                                text: `Sprawdź ${product.name} w Belle Blanche!`,
-                                url: product.permalink,
-                            });
+                            navigator.share({ title: product.name, text: `Sprawdź ${product.name} w Belle Blanche!`, url: product.permalink, });
                         } else {
                             showToast('Udostępnianie nie jest wspierane na tym urządzeniu');
                         }
@@ -128,12 +263,13 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({ productId }) =>
             </div>
         </div>
 
-        {/* Product Info */}
         <div className="p-6 bg-white rounded-t-3xl -mt-6 relative z-10">
             <h1 className="text-2xl font-bold text-dark">{product.name}</h1>
             <div className="flex items-center mt-2">
                 <Rating value={parseFloat(product.average_rating)} />
-                <span className="text-sm text-gray-400 ml-2">({product.rating_count} opinii)</span>
+                <a href="#reviews" onClick={(e) => { e.preventDefault(); reviewsRef.current?.scrollIntoView({ behavior: 'smooth' }); }} className="text-sm text-gray-400 ml-2 hover:underline">
+                  ({product.rating_count} opinii)
+                </a>
             </div>
             
             {product.attributes.map(attr => (
@@ -153,10 +289,42 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({ productId }) =>
                 </div>
             ))}
 
-            <p className="mt-4 text-dark/80 text-sm leading-relaxed">{product.description}</p>
+            <div 
+                className="mt-4 text-dark/80 text-sm leading-relaxed prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: product.description }}
+            />
         </div>
 
-        {/* Purchase CTA */}
+        <div id="reviews" ref={reviewsRef} className="p-6 bg-white border-t border-gray-100">
+            <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-dark">Opinie ({reviews.length})</h2>
+                <button 
+                    onClick={() => setShowReviewForm(!showReviewForm)}
+                    className="flex items-center gap-2 px-4 py-2 bg-accent text-primary text-sm font-semibold rounded-lg hover:bg-primary/10 transition-colors"
+                >
+                    <PencilIcon className="w-4 h-4" />
+                    <span>{showReviewForm ? 'Anuluj' : 'Napisz opinię'}</span>
+                </button>
+            </div>
+            
+            {showReviewForm && <ReviewForm productId={productId} onReviewSubmitted={() => { fetchReviews(); setShowReviewForm(false); }} />}
+
+            <div className="mt-6 space-y-6">
+                {reviews.length > 0 ? reviews.map(review => (
+                    <div key={review.id} className="border-b border-gray-100 pb-4">
+                        <div className="flex items-center justify-between">
+                            <h4 className="font-bold text-dark">{review.name}</h4>
+                            <Rating value={review.rating} />
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">{new Date(review.date_created).toLocaleDateString('pl-PL')}</p>
+                        <p className="mt-2 text-dark/80 text-sm">{review.review}</p>
+                    </div>
+                )) : (
+                    <p className="text-center text-gray-500 py-6">Ten produkt nie ma jeszcze żadnych opinii. Bądź pierwsza!</p>
+                )}
+            </div>
+        </div>
+
         <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm p-4 border-t border-gray-200">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-4">
                  <div className="flex items-center bg-accent rounded-xl">

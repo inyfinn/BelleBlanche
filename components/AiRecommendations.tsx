@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
 import type { Product } from '../types';
+import { useAppContext } from '../context/AppContext';
 import ProductCard from './ProductCard';
 
 interface AiRecommendationsProps {
@@ -10,26 +11,58 @@ interface AiRecommendationsProps {
 const AiRecommendations: React.FC<AiRecommendationsProps> = ({ allProducts }) => {
   const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const { userProfile, navigateTo } = useAppContext();
+
+  const hasMeasurements = userProfile.height || userProfile.bust || userProfile.waist || userProfile.hips || userProfile.bodyType;
+
   useEffect(() => {
-    // Only run if we have enough products for a meaningful recommendation AND a fallback
-    if (allProducts.length < 7) {
-        setLoading(false);
-        setRecommendedProducts([]); // Ensure it's empty if not enough products
-        return;
-    };
+    if (allProducts.length < 3) {
+      setLoading(false);
+      setRecommendedProducts([]);
+      return;
+    }
 
     const fetchRecommendations = async () => {
       setLoading(true);
 
+      // Fallback for when there are no measurements
+      const fallback = () => {
+        // Show some generic popular items as a fallback
+        setRecommendedProducts(allProducts.slice(0, 4)); 
+      };
+
+      if (!hasMeasurements) {
+        fallback();
+        setLoading(false);
+        return;
+      }
+
       try {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
         
-        const productInfoForPrompt = allProducts.map(p => ({ id: p.id, name: p.name }));
+        const productInfoForPrompt = allProducts.map(p => ({ 
+          id: p.id, 
+          name: p.name,
+          attributes: p.attributes.map(attr => ({ name: attr.name, options: attr.options }))
+        }));
 
-        const prompt = `You are a fashion expert. From the following list of products, select the IDs of 3 products that create a cohesive, elegant outfit.
-        Product list: ${JSON.stringify(productInfoForPrompt)}.
-        Respond ONLY with a JSON array of the 3 selected product IDs, like this: [1, 2, 3]`;
+        let userMeasurements = "Użytkowniczka ma następujące wymiary i preferencje:\n";
+        if (userProfile.height) userMeasurements += `- Wzrost: ${userProfile.height} cm\n`;
+        if (userProfile.bust) userMeasurements += `- Biust: ${userProfile.bust} cm\n`;
+        if (userProfile.waist) userMeasurements += `- Talia: ${userProfile.waist} cm\n`;
+        if (userProfile.hips) userMeasurements += `- Biodra: ${userProfile.hips} cm\n`;
+        if (userProfile.shoeSize) userMeasurements += `- Rozmiar buta: ${userProfile.shoeSize} EU\n`;
+        if (userProfile.calfCircumference) userMeasurements += `- Obwód łydki: ${userProfile.calfCircumference} cm\n`;
+        if (userProfile.bodyType) userMeasurements += `- Typ sylwetki: ${userProfile.bodyType}\n`;
+        if (userProfile.favoriteColor) userMeasurements += `- Ulubiony kolor: ${userProfile.favoriteColor}\n`;
+        if (userMeasurements.split('\n').length <= 1) userMeasurements = "Użytkowniczka nie podała swoich wymiarów.";
+        
+        const prompt = `Jesteś ekspertką mody i osobistą stylistką w butiku Belle Blanche. Twoim zadaniem jest zarekomendowanie 3 produktów z poniższej listy, które będą idealnie pasować do sylwetki i preferencji klientki.
+        ${userMeasurements}
+        Przeanalizuj dostępne produkty, ich atrybuty (rozmiary, kolory) i dopasuj je do danych klientki. Bądź precyzyjna - jeśli klientka podała rozmiar buta, możesz polecić jej obuwie. Jeśli podała ulubiony kolor, postaraj się znaleźć coś w tej tonacji.
+        Lista produktów: ${JSON.stringify(productInfoForPrompt)}.
+        Odpowiedz TYLKO w formacie JSON, zawierającym tablicę 3 numerów ID wybranych produktów, np: [123, 456, 789]`;
+
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -43,7 +76,6 @@ const AiRecommendations: React.FC<AiRecommendationsProps> = ({ allProducts }) =>
             }
         });
         
-        // Clean the response text from potential markdown formatting
         let responseText = response.text.trim();
         if (responseText.startsWith('```json')) {
           responseText = responseText.substring(7, responseText.length - 3).trim();
@@ -62,16 +94,14 @@ const AiRecommendations: React.FC<AiRecommendationsProps> = ({ allProducts }) =>
 
       } catch (error) {
         console.error("Failed to fetch AI recommendations, using fallback:", error);
-        // Fallback to showing products that are not on the main page.
-        // HomeView shows slice(0, 4), so we show from index 4 onwards.
-        setRecommendedProducts(allProducts.slice(4, 7));
+        fallback();
       } finally {
         setLoading(false);
       }
     };
 
     fetchRecommendations();
-  }, [allProducts]);
+  }, [allProducts, userProfile, hasMeasurements]);
 
   const ProductSkeleton = () => (
     <div className="group relative flex flex-col bg-white rounded-xl shadow-sm overflow-hidden animate-pulse">
@@ -83,6 +113,16 @@ const AiRecommendations: React.FC<AiRecommendationsProps> = ({ allProducts }) =>
         </div>
     </div>
   );
+
+  if (!hasMeasurements && !loading) {
+      return (
+          <div className="col-span-2 text-center text-gray-500 py-8 bg-accent/50 rounded-lg">
+              <p className="font-semibold">Odkryj swój idealny styl!</p>
+              <p className="text-sm mt-1 mb-3">Uzupełnij swoje wymiary w profilu, aby otrzymać spersonalizowane rekomendacje.</p>
+              <button onClick={() => navigateTo({ view: 'profile' })} className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg">Przejdź do profilu</button>
+          </div>
+      );
+  }
 
   if (!loading && recommendedProducts.length === 0) {
       return <div className="col-span-2 text-center text-gray-500 py-8">Brak rekomendacji do wyświetlenia.</div>;

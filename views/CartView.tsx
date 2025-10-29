@@ -49,7 +49,7 @@ const CartItemRow: React.FC<{ item: CartItem }> = ({ item }) => {
 }
 
 const CartView: React.FC = () => {
-  const { cart, cartTotal } = useAppContext();
+  const { cart, cartTotal, navigateTo } = useAppContext();
 
   if (cart.length === 0) {
     return (
@@ -74,7 +74,7 @@ const CartView: React.FC = () => {
         </div>
          <p className="text-xs text-gray-400 mt-1">Dostawa zostanie obliczona przy kasie.</p>
         <button 
-            onClick={() => alert('Przekierowanie do bramki płatności WooCommerce...')}
+            onClick={() => navigateTo({ view: 'checkout' })}
             className="mt-6 w-full bg-primary text-white py-4 rounded-xl font-bold hover:bg-opacity-90 transition-colors text-lg"
         >
             Do kasy
