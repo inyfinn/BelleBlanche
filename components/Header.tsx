@@ -25,6 +25,11 @@ const Header: React.FC<HeaderProps> = ({ viewState, goBack }) => {
             case 'addressManagement': return 'Adresy dostawy';
             case 'paymentMethods': return 'Metody płatności';
             case 'helpCenter': return 'Centrum pomocy';
+            case 'aboutUs': return 'O nas';
+            case 'contact': return 'Kontakt';
+            case 'terms': return 'Regulamin';
+            case 'privacy': return 'Polityka Prywatności';
+            case 'returns': return 'Zwroty i Reklamacje';
             default: return '';
         }
     }

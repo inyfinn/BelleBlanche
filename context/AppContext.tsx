@@ -65,7 +65,7 @@ const MOCK_ORDERS: Order[] = [
     { id: 'BB-1001', date: '2024-04-20', status: 'Dostarczone', total: 250.00, items: [{ name: 'Beżowy Trencz Klasyczny', quantity: 1 }] },
 ];
 const MOCK_ADDRESSES: Address[] = [
-    { id: 'addr-1', name: 'Dom', street: 'Kwiatowa 12/3', city: 'Warszawa', postalCode: '00-001', country: 'Polska', isDefault: true }
+    { id: 'addr-1', name: 'Dom', street: 'Kwiatowa 12/3', city: 'Częstochowa', postalCode: '42-200', country: 'Polska', isDefault: true }
 ];
 const MOCK_PAYMENT_METHODS: PaymentMethod[] = [
     { id: 'pm-1', cardType: 'Visa', last4: '1234', expiryDate: '12/26', isDefault: true }
@@ -79,7 +79,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [wishlist, setWishlist] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [toast, setToast] = useState<{ message: string; show: boolean }>({ message: '', show: false });
-  const [userProfile, setUserProfile] = useState<UserProfile>({ name: 'Anna Kowalska', email: 'anna.kowalska@example.com' });
+  const [userProfile, setUserProfile] = useState<UserProfile>({ name: 'Klaudia Woźniak', email: 'klaudia.wozniak@example.com', favoriteColor: [] });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
   

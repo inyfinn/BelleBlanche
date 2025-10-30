@@ -223,7 +223,7 @@ const ProductDetailsView: React.FC<ProductDetailsViewProps> = ({ productId }) =>
             {product.videoUrl && (
                 <button
                     onClick={handlePlayVideoClick}
-                    className="absolute bottom-12 right-4 z-10 p-2 bg-black/40 text-white rounded-full hover:bg-black/60 transition-all"
+                    className="absolute bottom-12 right-5 z-10 p-2 bg-black/40 text-white rounded-full hover:bg-black/60 transition-all"
                     aria-label="Odtwórz wideo"
                 >
                     <PlayIcon className="w-8 h-8" />

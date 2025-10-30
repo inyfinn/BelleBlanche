@@ -62,11 +62,11 @@ const ProfileView: React.FC = () => {
     ];
     
     const infoItems = [
-        { label: "O nas" },
-        { label: "Kontakt" },
-        { label: "Regulamin" },
-        { label: "Polityka prywatności" },
-        { label: "Zwroty i reklamacje" },
+        { label: "O nas", action: () => navigateTo({ view: 'aboutUs' }) },
+        { label: "Kontakt", action: () => navigateTo({ view: 'contact' }) },
+        { label: "Regulamin", action: () => navigateTo({ view: 'terms' }) },
+        { label: "Polityka prywatności", action: () => navigateTo({ view: 'privacy' }) },
+        { label: "Zwroty i reklamacje", action: () => navigateTo({ view: 'returns' }) },
     ];
 
     const MeasurementInput: React.FC<{ label: string; name: keyof UserProfile; value?: number; onChange: (name: keyof UserProfile, value: string) => void; disabled: boolean; unit: string; }> = ({ label, name, value, onChange, disabled, unit }) => {
@@ -133,7 +133,7 @@ const ProfileView: React.FC = () => {
             <div className="mt-8">
                 <div className="bg-white rounded-2xl shadow-sm">
                     <ul className="divide-y divide-gray-100">
-                        {infoItems.map((item, index) => ( <li key={index}><button className="w-full flex items-center justify-between p-4 text-left hover:bg-accent transition-colors"><span className="font-semibold text-dark">{item.label}</span><ChevronRightIcon className="w-5 h-5 text-gray-400" /></button></li> ))}
+                        {infoItems.map((item, index) => ( <li key={index}><button onClick={item.action} className="w-full flex items-center justify-between p-4 text-left hover:bg-accent transition-colors"><span className="font-semibold text-dark text-[11px]">{item.label}</span><ChevronRightIcon className="w-5 h-5 text-gray-400" /></button></li> ))}
                     </ul>
                 </div>
             </div>

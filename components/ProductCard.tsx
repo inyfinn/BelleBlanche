@@ -51,7 +51,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         {product.videoUrl && (
             <button
                 onClick={handlePlayVideoClick}
-                className="absolute bottom-3 right-3 z-10 p-1 bg-black/40 text-white rounded-full hover:bg-black/60 transition-all"
+                className="absolute bottom-5 right-5 z-10 p-1 bg-black/40 text-white rounded-full hover:bg-black/60 transition-all"
                 aria-label="Odtwórz wideo"
             >
                 <PlayIcon className="w-6 h-6" />

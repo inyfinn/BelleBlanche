@@ -23,6 +23,11 @@ import OrderHistoryView from './views/OrderHistoryView';
 import AddressManagementView from './views/AddressManagementView';
 import PaymentMethodsView from './views/PaymentMethodsView';
 import HelpCenterView from './views/HelpCenterView';
+import AboutUsView from './views/AboutUsView';
+import ContactView from './views/ContactView';
+import TermsView from './views/TermsView';
+import PrivacyPolicyView from './views/PrivacyPolicyView';
+import ReturnsPolicyView from './views/ReturnsPolicyView';
 
 
 const isMainView = (view: ViewState['view']): view is MainView => {
@@ -69,6 +74,16 @@ const AppContent: React.FC = () => {
                 return <PaymentMethodsView />;
             case 'helpCenter':
                 return <HelpCenterView />;
+            case 'aboutUs':
+                return <AboutUsView />;
+            case 'contact':
+                return <ContactView />;
+            case 'terms':
+                return <TermsView />;
+            case 'privacy':
+                return <PrivacyPolicyView />;
+            case 'returns':
+                return <ReturnsPolicyView />;
             default:
                 return <HomeView navigateTo={navigateTo} />;
         }

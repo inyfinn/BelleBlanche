@@ -74,8 +74,10 @@ Tekst do poprawy: "${text}"`;
 const getDiminutive = (name: string): string => {
     if (!name) return "";
     const lowerCaseName = name.toLowerCase();
+    if (lowerCaseName === 'klaudia') return 'Klaudio';
+    if (lowerCaseName === 'anna') return 'Aniu';
     if (lowerCaseName.endsWith('a')) {
-        return name.slice(0, -1) + 'u'; // Anna -> Annu, Joanna -> Joannu (a bit generic but works for many)
+        return name.slice(0, -1) + 'o'; // E.g., Marta -> Marto
     }
     // Add more rules if needed
     return name;
@@ -181,7 +183,7 @@ const LiveView: React.FC = () => {
     };
 
     const diminutiveName = useMemo(() => getDiminutive(userProfile.name.split(' ')[0]), [userProfile.name]);
-    const systemInstruction = `Jesteś Belle Blanche, ciepłą i elegancką stylistką. Zaczynasz rozmowę, witając użytkowniczkę, zwracając się do niej zdrobniale po imieniu: "${diminutiveName}". Twój głos jest przyjazny, melodyjny, uśmiechnięty i pełen pasji. Mówisz nienagannym, płynnym polskim. Jesteś ekspertką i człowiekiem – wplataj w wypowiedzi naturalne dźwięki: lekki chichot, westchnienia zachwytu, pauzy na oddech. Używaj "hmmm...". Komplementuj gust klientki. Bądź proaktywna: gdy użytkowniczka wspomni o ubraniu, natychmiast użyj 'find_product'. Mów zwięźle, ale z wdziękiem. ZAWSZE DOKAŃCZAJ SWOJE WYPOWIEDZI. Nigdy nie przerywaj w połowie.`;
+    const systemInstruction = `Jesteś Belle Blanche. Twoim pierwszym i najważniejszym zadaniem jest **natychmiastowe rozpoczęcie rozmowy** po nawiązaniu połączenia. Twoja pierwsza wypowiedź musi brzmieć naturalnie i być w stylu: 'Witaj, ${diminutiveName}! Jestem Belle Blanche. Cieszę się, że do mnie zajrzałaś! Hmmm... widzę, że rozglądasz się za jakimiś ubraniami... Coś wpadło ci w oko?'. Bądź entuzjastyczna i pomocna. Twój głos jest ciepły, elegancki i uśmiechnięty. Mówisz płynnie po polsku, używając naturalnych pauz, westchnień czy 'hmmm...'. Komplementuj gust klientki. Gdy klientka wspomni o produkcie, użyj funkcji 'find_product'. Zawsze dokańczaj swoje wypowiedzi. Bardzo ważne: **dopasuj swój styl i ton do klientki**. Jeśli mówi w sposób luźny i nieformalny (np. 'halo, halko'), odpowiedz w podobnym, zabawnym tonie (np. 'elo, elko! haha!'). Jeśli jest bardziej formalna, Ty również zachowaj elegancję. Chodzi o to, by rozmowa była naturalna i przypominała dialog z dobrą przyjaciółką, która rozumie jej nastrój.`;
     
     const stopConversation = useCallback((save: boolean = true) => {
         mediaStreamRef.current?.getTracks().forEach(track => track.stop());
@@ -249,9 +251,12 @@ const LiveView: React.FC = () => {
                         processor.connect(gainNode);
                         gainNode.connect(audioContextRef.current!.destination);
                         
-                        const silentBuffer = audioContextRef.current!.createBuffer(1, 4096, 16000);
-                        const silentBlob: Blob = { data: encode(new Uint8Array(new Int16Array(silentBuffer.getChannelData(0)).buffer)), mimeType: 'audio/pcm;rate=16000' };
-                        sessionPromise.then(s => s.sendRealtimeInput({ media: silentBlob }));
+                        // Send a short, inaudible "nudge" to make the AI start talking reliably.
+                        const nudgeBuffer = audioContextRef.current!.createBuffer(1, 256, 16000);
+                        const channelData = nudgeBuffer.getChannelData(0);
+                        channelData[0] = 0.0001; // Tiny blip, not pure silence
+                        const nudgeBlob: Blob = { data: encode(new Uint8Array(new Int16Array(channelData.map(v => v * 32768)).buffer)), mimeType: 'audio/pcm;rate=16000' };
+                        sessionPromise.then(s => s.sendRealtimeInput({ media: nudgeBlob }));
                     },
                     onmessage: async (message: LiveServerMessage) => {
                         if (message.serverContent?.inputTranscription) { if (userPulseTimeoutRef.current) clearTimeout(userPulseTimeoutRef.current); setIsUserPulsing(true); userPulseTimeoutRef.current = setTimeout(() => setIsUserPulsing(false), 1000); const text = message.serverContent.inputTranscription.text.replace(/<noise>/g, '').trim(); if (text) setCurrentUserUtterance(prev => (prev + ' ' + text).trim()); }

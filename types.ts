@@ -120,4 +120,9 @@ export type ViewState =
   | { view: 'orderHistory' }
   | { view: 'addressManagement' }
   | { view: 'paymentMethods' }
-  | { view: 'helpCenter' };
+  | { view: 'helpCenter' }
+  | { view: 'aboutUs' }
+  | { view: 'contact' }
+  | { view: 'terms' }
+  | { view: 'privacy' }
+  | { view: 'returns' };

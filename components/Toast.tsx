@@ -18,9 +18,10 @@ const Toast: React.FC<ToastProps> = ({ message, show, onClose }) => {
 
   return (
     <div
-      className={`fixed bottom-24 left-1/2 -translate-x-1/2 px-6 py-3 bg-dark text-white rounded-full shadow-lg transition-all duration-300 z-50 ${
+      className={`fixed bottom-24 left-1/2 -translate-x-1/2 px-6 py-3 bg-white text-primary border border-primary/30 rounded-lg shadow-lg transition-all duration-300 z-50 ${
         show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
       }`}
+      style={{ borderRadius: '6px' }}
     >
       {message}
     </div>
